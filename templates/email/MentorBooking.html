@@ -1,0 +1,38 @@
+<html>
+<head>
+  <style>
+    .ii a[href] {
+    color: #000 !important;
+    text-decoration: none !important;
+}
+    p{
+      margin-bottom: 30px;
+    font-size: 15px;
+    text-align: justify;
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif;">
+<div style="width: 100%; background: #efefef; border-radius: 10px; padding: 10px;">
+  <div style="margin: 0 auto; width: 100%; text-align: center;">
+    <img src="cid:mentorlogo.png" width="200px">
+    <div style="margin: 30px auto; background: white; width:660px; border-radius: 10px; padding: 50px; text-align: center;">
+      <h3 style="margin-bottom: 10px; font-size: 16px;display: flex;">Dear {{ name }},</h3>
+      <p style="margin-bottom: 30px;font-size: 15px;text-align: justify;">{{ message }}</p>
+      <h3 style="margin-bottom: 10px; font-size: 16px;display: flex;">Mentee's Business Info</h3>
+      <p style="margin-bottom: 30px;font-size: 15px;text-align: justify;">{{ business_info }}</p>
+      <h3 style="margin-bottom: 10px; font-size: 16px;display: flex;">Context on the area of interest</h3>
+      <p style="margin-bottom: 30px;font-size: 15px;text-align: justify;">{{ area_of_interest_context }}</p>
+      <h3 style="margin-bottom: 10px; font-size: 16px;display: flex;">Questions that your mentor is going to answer</h3>
+      <p style="margin-bottom: 30px;font-size: 15px;text-align: justify;">{{ mentor_questions }}</p>
+      <a style="font-weight: bold;font-size: 14px; padding: 12px 30px;display: block; margin: 0 auto; border: none; background-color: #0d4749; color: white; width: fit-content; line-height: 24px; border-radius: 10px; cursor: pointer; text-decoration: none;"
+        href="https://mentor.rw/signIn"
+        target="_blank"
+      >
+        Log in to your account to get started
+      </a>
+    </div>
+  </div>
+</div>
+</body>
+</html>

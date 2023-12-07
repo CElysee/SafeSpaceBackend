@@ -46,7 +46,7 @@ async def get_membership_bookings(db: db_dependency):
             },
             "yoga_session": yoga_session,
             "country": country.name,
-            "booking":  booking,
+            "booking": booking,
             # Include other booking details as needed
         }
         booking_info.append(data)
@@ -67,6 +67,8 @@ async def create_membership_bookings(membership_bookings: MembershipBookingsCrea
             billing_address=membership_bookings.billing_address,
             billing_city=membership_bookings.billing_city,
             starting_date=membership_bookings.starting_date,
+            booking_status="pending",
+            payment_status="pending",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
@@ -99,6 +101,8 @@ async def create_membership_bookings(membership_bookings: MembershipBookingsCrea
             billing_address=membership_bookings.billing_address,
             billing_city=membership_bookings.billing_city,
             starting_date=membership_bookings.starting_date,
+            booking_status="pending",
+            payment_status="pending",
             created_at=datetime.now(),
             updated_at=datetime.now(),
         )
@@ -129,6 +133,33 @@ async def get_membership_bookings(id: int, db: db_dependency):
     return data
 
 
+@router.get("/user/{id}")
+async def get_membership_bookings(id: int, db: db_dependency):
+    membership_bookings_list = db.query(MembershipBookings).filter(MembershipBookings.user_id == id).all()
+    booking_info = []
+
+    for booking in membership_bookings_list:
+        user = db.query(models.User).filter(models.User.id == booking.user_id).first()
+        yoga_session = db.query(models.YogaSessions).filter(models.YogaSessions.id == booking.yoga_session_id).first()
+        country = db.query(models.Country).filter(models.Country.id == booking.billing_country_id).first()
+
+        data = {
+            "id": booking.id,
+            "user": {
+                "name": user.name,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "gender": user.gender,
+            },
+            "yoga_session": yoga_session,
+            "country": country.name,
+            "booking": booking,
+            # Include other booking details as needed
+        }
+        booking_info.append(data)
+    return booking_info
+
+
 @router.delete("/delete/{id}")
 async def delete_membership_bookings(id: int, db: db_dependency):
     check_membership_bookings = db.query(MembershipBookings).filter(MembershipBookings.id == id).first()
@@ -137,3 +168,15 @@ async def delete_membership_bookings(id: int, db: db_dependency):
     db.query(MembershipBookings).filter(MembershipBookings.id == id).delete()
     db.commit()
     return {"message": "Membership Bookings deleted successfully"}
+
+
+# count booking by user and sum price
+@router.get("/count/{id}")
+async def count_membership_bookings(id: int, db: db_dependency):
+    count_membership_bookings = db.query(MembershipBookings).filter(MembershipBookings.user_id == id).count()
+    sum_membership_bookings = db.query(MembershipBookings).filter(MembershipBookings.user_id == id).all()
+    sum = 0
+    for i in sum_membership_bookings:
+        price = int(i.yoga_session.price)
+        sum += price
+    return {"count": count_membership_bookings, "sum": sum}

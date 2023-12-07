@@ -90,3 +90,5 @@ class MembershipBookingsCreate(BaseModel):
     billing_city: str
     billing_country_id: int
     starting_date: str
+    # booking_status: str
+    # payment_status: str

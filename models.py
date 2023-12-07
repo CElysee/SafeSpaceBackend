@@ -68,6 +68,8 @@ class MembershipBookings(Base):
     billing_city = Column(String(50))
     billing_country_id = Column(Integer, ForeignKey("countries.id"))
     starting_date = Column(DateTime)
+    booking_status = Column(String(50))
+    payment_status = Column(String(50))
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 

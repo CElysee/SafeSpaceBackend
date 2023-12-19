@@ -27,6 +27,7 @@ class User(Base):
 
     country = relationship("Country", back_populates="user")
     membership_bookings = relationship("MembershipBookings", back_populates="user")
+    yoga_class_booking = relationship("YogaClassBooking", back_populates="user")
 
 
 class Country(Base):
@@ -54,6 +55,7 @@ class YogaSessions(Base):
     updated_at = Column(DateTime)
 
     membership_bookings = relationship("MembershipBookings", back_populates="yoga_session")
+    yoga_class_booking = relationship("YogaClassBooking", back_populates="yoga_session")
 
 
 class MembershipBookings(Base):
@@ -67,8 +69,6 @@ class MembershipBookings(Base):
     billing_address = Column(String(50))
     billing_city = Column(String(50))
     billing_country_id = Column(Integer, ForeignKey("countries.id"))
-    starting_date = Column(DateTime)
-    booking_status = Column(String(50))
     payment_status = Column(String(50))
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
@@ -77,3 +77,34 @@ class MembershipBookings(Base):
     yoga_session = relationship("YogaSessions", back_populates="membership_bookings")
     country = relationship("Country", back_populates="membership_bookings")
 
+
+class YogaClassLocation(Base):
+    __tablename__ = "yoga_class_location"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50))
+    address = Column(String(50))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+    yoga_class_booking = relationship("YogaClassBooking", back_populates="yoga_class_location")
+
+
+class YogaClassBooking(Base):
+    __tablename__ = "yoga_class_booking"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
+    yoga_session_id = Column(Integer, ForeignKey("yoga_sessions.id"))
+    booking_date = Column(DateTime)
+    booking_slot_time = Column(String(50))
+    booking_slot_number = Column(Integer)
+    booking_status = Column(String(50))
+    payment_status = Column(String(50))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+    user = relationship("User", back_populates="yoga_class_booking")
+    yoga_class_location = relationship("YogaClassLocation", back_populates="yoga_class_booking")
+    yoga_session = relationship("YogaSessions", back_populates="yoga_class_booking")

@@ -1,5 +1,3 @@
-# import sys
-# sys.path.append("..")
 from datetime import datetime, timedelta
 import calendar
 import random
@@ -171,7 +169,6 @@ def send_sms(phone_number, message):
         'sms': message,
         'action': 'send-sms'
     }
-
     try:
         response = requests.post(url, headers=headers, json=payload)
         print(response)
@@ -314,6 +311,25 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
             'userId': user.id}
 
 
+# User info by id
+@router.get("/users/{user_id}")
+async def get_user(user_id: int, db: db_dependency):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    country = db.query(models.Country).filter(models.Country.id == user.country_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    data = {
+        "id": user.id,
+        "name": user.names,
+        "email": user.email,
+        "phone_number": user.phone_number,
+        "username": user.username,
+        "role": user.role,
+        "gender": user.gender,
+        "country": country.name,
+        "country_id": user.country_id,
+    }
+    return data
 @router.post("/check_username", status_code=status.HTTP_200_OK)
 async def check_username(user_request: schemas.UserCheck, db: db_dependency):
     user = db.query(models.User).filter(models.User.email == user_request.email).first()
@@ -335,6 +351,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
+
 @router.post("/users/profile/update", status_code=status.HTTP_200_OK)
 async def update_profile(
         name: str = Form(None),
@@ -354,7 +371,7 @@ async def update_profile(
             user.name = name
         if email:
             user.email = email
-        if  phone_number:
+        if phone_number:
             user.phone_number = phone_number
         if country_id:
             user.country_id = country_id

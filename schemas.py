@@ -92,3 +92,35 @@ class MembershipBookingsCreate(BaseModel):
     starting_date: str
     # booking_status: str
     # payment_status: str
+
+
+class YogaClassLocationCreate(BaseModel):
+    name: str
+    address: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class YogaClassLocationUpdate(BaseModel):
+    name: Optional[str]
+    address: Optional[str]
+
+
+class YogaClassBookingCreate(BaseModel):
+    password: str
+    yoga_session_id: int
+    billing_names: str
+    billing_email: str
+    billing_address: str
+    billing_city: str
+    billing_country_id: int
+    # user_id: int
+    yoga_session_id: int
+    yoga_class_location_id: int
+    booking_date: str
+    booking_slot_time: str
+    booking_slot_number: int
+    # booking_status: str
+    # payment_status: str
+
+

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette import status
 from fastapi.staticfiles import StaticFiles
 
-from routes import (auth, country,YogaSessions, MembershipBookings)
+from routes import (auth, country,YogaSessions, MembershipBookings, YogaClassLocation, YogaClassBooking)
 from routes.auth import get_current_user, user_dependency
 
 import models
@@ -28,6 +28,8 @@ app.include_router(auth.router)
 app.include_router(country.router)
 app.include_router(YogaSessions.router)
 app.include_router(MembershipBookings.router)
+app.include_router(YogaClassLocation.router)
+app.include_router(YogaClassBooking.router)
 
 
 app.mount("/CarSellImages", StaticFiles(directory="CarSellImages"), name="images")

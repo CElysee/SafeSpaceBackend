@@ -315,21 +315,22 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
 @router.get("/users/{user_id}")
 async def get_user(user_id: int, db: db_dependency):
     user = db.query(models.User).filter(models.User.id == user_id).first()
-    country = db.query(models.Country).filter(models.Country.id == user.country_id).first()
+    country = user.country
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     data = {
         "id": user.id,
-        "name": user.names,
+        "name": user.name,
         "email": user.email,
         "phone_number": user.phone_number,
         "username": user.username,
         "role": user.role,
         "gender": user.gender,
-        "country": country.name,
-        "country_id": user.country_id,
+        "country": country,
     }
     return data
+
+
 @router.post("/check_username", status_code=status.HTTP_200_OK)
 async def check_username(user_request: schemas.UserCheck, db: db_dependency):
     user = db.query(models.User).filter(models.User.email == user_request.email).first()
@@ -349,7 +350,6 @@ async def check_username(user_request: schemas.UserCheck, db: db_dependency):
 @router.get("/users/me", response_model=schemas.UserOut)
 async def get_me(current_user: dict = Depends(get_current_user)):
     return current_user
-
 
 
 @router.post("/users/profile/update", status_code=status.HTTP_200_OK)

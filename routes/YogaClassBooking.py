@@ -5,7 +5,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from database import db_dependency
 from starlette import status
-from models import YogaClassBooking, User, MembershipBookings
+from models import YogaClassBooking, User, MembershipBookings, YogaSessions, Country
 from schemas import YogaClassBookingCreate
 from typing import List, Optional, Annotated
 
@@ -27,7 +27,87 @@ def get_hashed_password(password: str):
 @router.get("/list")
 async def get_yoga_class_booking(db: db_dependency):
     yoga_class_booking_list = db.query(YogaClassBooking).all()
-    return yoga_class_booking_list
+    booking_info = []
+
+    for booking in yoga_class_booking_list:
+        user = db.query(User).filter(User.id == booking.user_id).first()
+        yoga_session = db.query(YogaSessions).filter(YogaSessions.id == booking.yoga_session_id).first()
+
+        data = {
+            "id": booking.id,
+            "user": {
+                "name": user.name,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "gender": user.gender,
+            },
+            "yoga_session": yoga_session,
+            "booking": booking,
+            # Include other booking details as needed
+        }
+        booking_info.append(data)
+
+    return booking_info
+
+
+@router.get("/user_bookings")
+async def get_membership_bookings(user_id: int, db: db_dependency):
+    # if db.query(MembershipBookings).filter(MembershipBookings.id == user_id).first() is None:
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Membership Bookings does not exist")
+
+    # yoga_session = db.query(YogaClassBooking).filter(YogaClassBooking.user_id == user_id).first().yoga_session
+    # user_info = db.query(YogaClassBooking).filter(YogaClassBooking.user_id == user_id).first().user
+    # user_data = []
+    # data = {
+    #     "name": user_info.name,
+    #     "email": user_info.email,
+    #     "phone_number": user_info.phone_number,
+    #     "gender": user_info.gender,
+    #     "yoga_session": yoga_session,
+    #     "booking": db.query(YogaClassBooking).filter(YogaClassBooking.user_id == user_id).first()
+    # }
+    # user_data.append(data)
+    # return data
+
+    yoga_class_booking_list = db.query(YogaClassBooking).filter(YogaClassBooking.user_id == user_id).all()
+    booking_info = []
+
+    for booking in yoga_class_booking_list:
+        user = db.query(User).filter(User.id == booking.user_id).first()
+        yoga_session = db.query(YogaSessions).filter(YogaSessions.id == booking.yoga_session_id).first()
+
+        data = {
+            "id": booking.id,
+            "user": {
+                "name": user.name,
+                "email": user.email,
+                "phone_number": user.phone_number,
+                "gender": user.gender,
+            },
+            "yoga_session": yoga_session,
+            "booking": booking,
+            # Include other booking details as needed
+        }
+        booking_info.append(data)
+
+    return booking_info
+
+
+@router.get("/transaction")
+async def get_transaction(user_id: int, db: db_dependency):
+    membership_bookings = db.query(MembershipBookings).filter(MembershipBookings.user_id == user_id).all()
+    transactions = []
+    for transaction in membership_bookings:
+        yoga_session = db.query(YogaSessions).filter(YogaSessions.id == transaction.yoga_session_id).first()
+        country = db.query(Country).filter(Country.id == transaction.billing_country_id).first()
+        data = {
+            "id": transaction.id,
+            "yoga_session": yoga_session.name,
+            "country": country.name,
+            "booking": transaction,
+        }
+        transactions.append(data)
+    return transactions
 
 
 @router.post("/create", status_code=status.HTTP_201_CREATED)
@@ -47,6 +127,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
             updated_at=datetime.now(),
         )
         db.add(membership_bookings)
+        db.commit()
         yoga_class_booking = YogaClassBooking(
             user_id=user.id,
             yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
@@ -54,6 +135,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
             booking_date=yoga_class_booking.booking_date,
             booking_slot_time=yoga_class_booking.booking_slot_time,
             booking_slot_number=yoga_class_booking.booking_slot_number,
+            transaction_id=membership_bookings.id,
             booking_status="Pending",
             payment_status="Pending",
             created_at=datetime.now(),
@@ -89,6 +171,8 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
             updated_at=datetime.now(),
         )
         db.add(membership_bookings)
+        db.commit()
+
         yoga_class_booking = YogaClassBooking(
             user_id=user.id,
             yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
@@ -96,6 +180,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
             booking_date=yoga_class_booking.booking_date,
             booking_slot_time=yoga_class_booking.booking_slot_time,
             booking_slot_number=yoga_class_booking.booking_slot_number,
+            transaction_id=membership_bookings.id,
             booking_status="Pending",
             payment_status="Pending",
             created_at=datetime.now(),
@@ -109,9 +194,13 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
 
 
 @router.get("/spot_available")
-async def get_spot_available(yoga_session_id: int, booking_date: str, booking_slot_time: str, yoga_class_location_id: int,  db: db_dependency):
-    yoga_class_booking = db.query(YogaClassBooking).filter(YogaClassBooking.yoga_class_location_id == yoga_class_location_id).filter(YogaClassBooking.yoga_session_id == yoga_session_id).filter(
-        YogaClassBooking.booking_date == booking_date).filter(YogaClassBooking.booking_slot_time == booking_slot_time).all()
+async def get_spot_available(yoga_session_id: int, booking_date: str, booking_slot_time: str,
+                             yoga_class_location_id: int, db: db_dependency):
+    yoga_class_booking = db.query(YogaClassBooking).filter(
+        YogaClassBooking.yoga_class_location_id == yoga_class_location_id).filter(
+        YogaClassBooking.yoga_session_id == yoga_session_id).filter(
+        YogaClassBooking.booking_date == booking_date).filter(
+        YogaClassBooking.booking_slot_time == booking_slot_time).all()
 
     sum_slots = 0
     for booking in yoga_class_booking:
@@ -121,3 +210,15 @@ async def get_spot_available(yoga_session_id: int, booking_date: str, booking_sl
         return {"message": {10 - sum_slots}}
     else:
         return {"message": "Spot not available"}
+
+
+@router.get("/count")
+async def get_count(user_id: int, db: db_dependency):
+    count_yoga_class_bookings = db.query(YogaClassBooking).filter(YogaClassBooking.user_id == user_id).filter(
+        YogaClassBooking.booking_status == "Pending").count()
+    sum_membership_bookings = db.query(MembershipBookings).filter(MembershipBookings.user_id == user_id).all()
+    sum = 0
+    for i in sum_membership_bookings:
+        price = int(i.yoga_session.price)
+        sum += price
+    return {"count": count_yoga_class_bookings, "sum": sum}

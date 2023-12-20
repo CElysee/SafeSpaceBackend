@@ -76,6 +76,7 @@ class MembershipBookings(Base):
     user = relationship("User", back_populates="membership_bookings")
     yoga_session = relationship("YogaSessions", back_populates="membership_bookings")
     country = relationship("Country", back_populates="membership_bookings")
+    yoga_class_booking = relationship("YogaClassBooking", back_populates="membership_bookings")
 
 
 class YogaClassLocation(Base):
@@ -97,6 +98,7 @@ class YogaClassBooking(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
     yoga_session_id = Column(Integer, ForeignKey("yoga_sessions.id"))
+    transaction_id = Column(Integer, ForeignKey("membership_bookings.id"))
     booking_date = Column(DateTime)
     booking_slot_time = Column(String(50))
     booking_slot_number = Column(Integer)
@@ -108,3 +110,4 @@ class YogaClassBooking(Base):
     user = relationship("User", back_populates="yoga_class_booking")
     yoga_class_location = relationship("YogaClassLocation", back_populates="yoga_class_booking")
     yoga_session = relationship("YogaSessions", back_populates="yoga_class_booking")
+    membership_bookings = relationship("MembershipBookings", back_populates="yoga_class_booking")

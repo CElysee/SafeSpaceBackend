@@ -104,4 +104,20 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         db.add(yoga_class_booking)
         db.commit()
         db.refresh(membership_bookings)
+
         return {"message": "Yoga Class Booking created successfully"}
+
+
+@router.get("/spot_available")
+async def get_spot_available(yoga_session_id: int, booking_date: str, booking_slot_time: str, yoga_class_location_id: int,  db: db_dependency):
+    yoga_class_booking = db.query(YogaClassBooking).filter(YogaClassBooking.yoga_class_location_id == yoga_class_location_id).filter(YogaClassBooking.yoga_session_id == yoga_session_id).filter(
+        YogaClassBooking.booking_date == booking_date).filter(YogaClassBooking.booking_slot_time == booking_slot_time).all()
+
+    sum_slots = 0
+    for booking in yoga_class_booking:
+        sum_slots += booking.booking_slot_number  # Add each booking_slot_number to the sum_slots
+
+    if sum_slots < 10:
+        return {"message": {10 - sum_slots}}
+    else:
+        return {"message": "Spot not available"}

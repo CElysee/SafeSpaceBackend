@@ -330,7 +330,6 @@ async def get_user(user_id: int, db: db_dependency):
     }
     return data
 
-
 @router.post("/check_username", status_code=status.HTTP_200_OK)
 async def check_username(user_request: schemas.UserCheck, db: db_dependency):
     user = db.query(models.User).filter(models.User.email == user_request.email).first()
@@ -389,3 +388,26 @@ async def update_profile(
 
     finally:
         db.close()
+
+
+@router.post("/users/profile/update_password", status_code=status.HTTP_200_OK)
+async def update_password(
+        old_password: str = Form(...),
+        new_password: str = Form(...),
+        user_id: str = Form(...),
+        db: Session = Depends(get_db),
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if old_password and new_password:
+        if not bcrypt_context.verify(old_password, user.password):
+            raise HTTPException(status_code=400, detail="Old password is incorrect")
+        else:
+            user.password = get_hashed_password(new_password)
+            # Commit the changes to the database
+            db.commit()
+            return {"message": "Password updated successfully"}
+    else:
+        raise HTTPException(status_code=400, detail="Old password is incorrect")

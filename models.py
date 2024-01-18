@@ -88,7 +88,7 @@ class YogaClassLocation(Base):
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
-    yoga_class_booking = relationship("YogaClassBooking", back_populates="yoga_class_location")
+    # yoga_class_booking = relationship("YogaClassBooking", back_populates="yoga_class_location")
 
 
 class YogaClassBooking(Base):
@@ -96,7 +96,8 @@ class YogaClassBooking(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
+    # yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
+    yoga_class_location_id = Column(String(50))
     yoga_session_id = Column(Integer, ForeignKey("yoga_sessions.id"))
     transaction_id = Column(Integer, ForeignKey("membership_bookings.id"))
     booking_date = Column(DateTime)
@@ -108,6 +109,6 @@ class YogaClassBooking(Base):
     updated_at = Column(DateTime)
 
     user = relationship("User", back_populates="yoga_class_booking")
-    yoga_class_location = relationship("YogaClassLocation", back_populates="yoga_class_booking")
+    # yoga_class_location = relationship("YogaClassLocation", back_populates="yoga_class_booking")
     yoga_session = relationship("YogaSessions", back_populates="yoga_class_booking")
     membership_bookings = relationship("MembershipBookings", back_populates="yoga_class_booking")

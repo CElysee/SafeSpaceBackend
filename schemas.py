@@ -1,5 +1,5 @@
 from datetime import datetime, time
-from typing import Optional, List
+from typing import Optional, List, Text
 
 from pydantic import BaseModel, EmailStr
 
@@ -116,10 +116,12 @@ class YogaClassBookingCreate(BaseModel):
     billing_country_id: int
     # user_id: int
     yoga_session_id: int
-    yoga_class_location_id: int
+    yoga_class_location_id: str
     booking_date: str
     booking_slot_time: str
-    booking_slot_number: int
+    booking_more_sessions: List[str]
+    payment_package_id: int
+    # booking_slot_number: Optional[int]
     # booking_status: str
     # payment_status: str
 

@@ -137,122 +137,122 @@ async def get_transaction(user_id: int, db: db_dependency):
 async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, db: db_dependency):
     formatted_session_date = formatted_date(yoga_class_booking.booking_date)
     more_session_array = yoga_class_booking.booking_more_sessions
-    # if yoga_class_booking.password == "":
-    #     user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
-    #     membership_bookings = MembershipBookings(
-    #         user_id=user.id,
-    #         yoga_session_id=yoga_class_booking.yoga_session_id,
-    #         billing_country_id=yoga_class_booking.billing_country_id,
-    #         billing_names=yoga_class_booking.billing_names,
-    #         billing_email=yoga_class_booking.billing_email,
-    #         billing_address=yoga_class_booking.billing_address,
-    #         billing_city=yoga_class_booking.billing_city,
-    #         payment_status="paid",
-    #         created_at=datetime.now(),
-    #         updated_at=datetime.now(),
-    #     )
-    #     db.add(membership_bookings)
-    #     db.commit()
-    #     yoga_class_booking = YogaClassBooking(
-    #         user_id=user.id,
-    #         yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-    #         yoga_session_id=yoga_class_booking.yoga_session_id,
-    #         booking_date=formatted_session_date,
-    #         booking_slot_time=yoga_class_booking.booking_slot_time,
-    #         # booking_slot_number=yoga_class_booking.booking_slot_number,
-    #         transaction_id=membership_bookings.id,
-    #         booking_status="Pending",
-    #         payment_status="Pending",
-    #         created_at=datetime.now(),
-    #         updated_at=datetime.now(),
-    #     )
-    #     db.add(yoga_class_booking)
-    #     db.commit()
-    #
-    #     if more_session_array:
-    #         for sessions_date in more_session_array:
-    #             updated_date = formatted_date(sessions_date)
-    #             yoga_class_booking = YogaClassBooking(
-    #                 user_id=user.id,
-    #                 yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-    #                 yoga_session_id=yoga_class_booking.yoga_session_id,
-    #                 booking_date=updated_date,
-    #                 booking_slot_time=yoga_class_booking.booking_slot_time,
-    #                 # booking_slot_number=yoga_class_booking.booking_slot_number,
-    #                 transaction_id=membership_bookings.id,
-    #                 booking_status="Pending",
-    #                 payment_status="Pending",
-    #                 created_at=datetime.now(),
-    #                 updated_at=datetime.now(),
-    #             )
-    #             db.add(yoga_class_booking)
-    #             db.commit()
-    #
-    #     return {"message": "Yoga Class Booking created successfully"}
-    #
-    # else:
-    #     hashed_password = get_hashed_password(yoga_class_booking.password)
-    #     user = User(
-    #         name=yoga_class_booking.billing_names,
-    #         email=yoga_class_booking.billing_email,
-    #         username=yoga_class_booking.billing_email,
-    #         password=hashed_password,
-    #         role="user",
-    #         created_at=datetime.now(),
-    #         is_active=True,
-    #     )
-    #     db.add(user)
-    #     db.commit()
-    #     membership_bookings = MembershipBookings(
-    #         user_id=user.id,
-    #         yoga_session_id=yoga_class_booking.yoga_session_id,
-    #         billing_country_id=yoga_class_booking.billing_country_id,
-    #         billing_names=yoga_class_booking.billing_names,
-    #         billing_email=yoga_class_booking.billing_email,
-    #         billing_address=yoga_class_booking.billing_address,
-    #         billing_city=yoga_class_booking.billing_city,
-    #         payment_status="paid",
-    #         created_at=datetime.now(),
-    #         updated_at=datetime.now(),
-    #     )
-    #     db.add(membership_bookings)
-    #     db.commit()
-    #
-    #     yoga_class_booking = YogaClassBooking(
-    #         user_id=user.id,
-    #         yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-    #         yoga_session_id=yoga_class_booking.yoga_session_id,
-    #         booking_date=formatted_session_date,
-    #         booking_slot_time=yoga_class_booking.booking_slot_time,
-    #         # booking_slot_number=yoga_class_booking.booking_slot_number,
-    #         transaction_id=membership_bookings.id,
-    #         booking_status="Pending",
-    #         payment_status="Pending",
-    #         created_at=datetime.now(),
-    #         updated_at=datetime.now(),
-    #     )
-    #     db.add(yoga_class_booking)
-    #     db.commit()
-    #     db.refresh(membership_bookings)
-    #
-    #     if more_session_array:
-    #         for sessions_date in yoga_class_booking.booking_more_sessions:
-    #             updated_date = formatted_date(sessions_date)
-    #             yoga_class_booking = YogaClassBooking(
-    #                 user_id=user.id,
-    #                 yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-    #                 yoga_session_id=yoga_class_booking.yoga_session_id,
-    #                 booking_date=updated_date,
-    #                 booking_slot_time=yoga_class_booking.booking_slot_time,
-    #                 # booking_slot_number=yoga_class_booking.booking_slot_number,
-    #                 transaction_id=membership_bookings.id,
-    #                 booking_status="Pending",
-    #                 payment_status="Pending",
-    #                 created_at=datetime.now(),
-    #                 updated_at=datetime.now(),
-    #             )
-    #             db.add(yoga_class_booking)
-    #             db.commit()
+    if yoga_class_booking.password == "":
+        user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
+        membership_bookings = MembershipBookings(
+            user_id=user.id,
+            yoga_session_id=yoga_class_booking.yoga_session_id,
+            billing_country_id=yoga_class_booking.billing_country_id,
+            billing_names=yoga_class_booking.billing_names,
+            billing_email=yoga_class_booking.billing_email,
+            billing_address=yoga_class_booking.billing_address,
+            billing_city=yoga_class_booking.billing_city,
+            payment_status="paid",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        db.add(membership_bookings)
+        db.commit()
+        yoga_class_booking = YogaClassBooking(
+            user_id=user.id,
+            yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+            yoga_session_id=yoga_class_booking.yoga_session_id,
+            booking_date=formatted_session_date,
+            booking_slot_time=yoga_class_booking.booking_slot_time,
+            # booking_slot_number=yoga_class_booking.booking_slot_number,
+            transaction_id=membership_bookings.id,
+            booking_status="Pending",
+            payment_status="Pending",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        db.add(yoga_class_booking)
+        db.commit()
+
+        if more_session_array:
+            for sessions_date in more_session_array:
+                updated_date = formatted_date(sessions_date)
+                yoga_class_booking = YogaClassBooking(
+                    user_id=user.id,
+                    yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+                    yoga_session_id=yoga_class_booking.yoga_session_id,
+                    booking_date=updated_date,
+                    booking_slot_time=yoga_class_booking.booking_slot_time,
+                    # booking_slot_number=yoga_class_booking.booking_slot_number,
+                    transaction_id=membership_bookings.id,
+                    booking_status="Pending",
+                    payment_status="Pending",
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                )
+                db.add(yoga_class_booking)
+                db.commit()
+
+        return {"message": "Yoga Class Booking created successfully"}
+
+    else:
+        hashed_password = get_hashed_password(yoga_class_booking.password)
+        user = User(
+            name=yoga_class_booking.billing_names,
+            email=yoga_class_booking.billing_email,
+            username=yoga_class_booking.billing_email,
+            password=hashed_password,
+            role="user",
+            created_at=datetime.now(),
+            is_active=True,
+        )
+        db.add(user)
+        db.commit()
+        membership_bookings = MembershipBookings(
+            user_id=user.id,
+            yoga_session_id=yoga_class_booking.yoga_session_id,
+            billing_country_id=yoga_class_booking.billing_country_id,
+            billing_names=yoga_class_booking.billing_names,
+            billing_email=yoga_class_booking.billing_email,
+            billing_address=yoga_class_booking.billing_address,
+            billing_city=yoga_class_booking.billing_city,
+            payment_status="paid",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        db.add(membership_bookings)
+        db.commit()
+
+        yoga_class_booking = YogaClassBooking(
+            user_id=user.id,
+            yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+            yoga_session_id=yoga_class_booking.yoga_session_id,
+            booking_date=formatted_session_date,
+            booking_slot_time=yoga_class_booking.booking_slot_time,
+            # booking_slot_number=yoga_class_booking.booking_slot_number,
+            transaction_id=membership_bookings.id,
+            booking_status="Pending",
+            payment_status="Pending",
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        db.add(yoga_class_booking)
+        db.commit()
+        db.refresh(membership_bookings)
+
+        if more_session_array:
+            for sessions_date in yoga_class_booking.booking_more_sessions:
+                updated_date = formatted_date(sessions_date)
+                yoga_class_booking = YogaClassBooking(
+                    user_id=user.id,
+                    yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+                    yoga_session_id=yoga_class_booking.yoga_session_id,
+                    booking_date=updated_date,
+                    booking_slot_time=yoga_class_booking.booking_slot_time,
+                    # booking_slot_number=yoga_class_booking.booking_slot_number,
+                    transaction_id=membership_bookings.id,
+                    booking_status="Pending",
+                    payment_status="Pending",
+                    created_at=datetime.now(),
+                    updated_at=datetime.now(),
+                )
+                db.add(yoga_class_booking)
+                db.commit()
     subject = f"Thank you for Booking a session at SafeSpace Studio!"
     message = f"Your scheduled yoga session with is confirmed for {formatted_session_date} at {yoga_class_booking.booking_slot_time}. You will receive an email if anything changes."
     smtp_server = os.getenv("MAILGUN_SMTP_SERVER")

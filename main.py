@@ -16,7 +16,7 @@ app = FastAPI()
 # Configure CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://mentor.rw", "https://www.mentor.rw"],
+    allow_origins=["http://localhost:5173", "https://app.safespaceyoga.rw"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

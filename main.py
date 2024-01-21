@@ -14,9 +14,11 @@ from cachetools import TTLCache
 
 app = FastAPI()
 # Configure CORS middleware
+origins = ["*"]  # Replace "*" with your frontend's domain(s) for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://app.safespaceyoga.rw"],
+    allow_origins=origins,
+    # allow_origins=["http://localhost:5173", "https://app.safespaceyoga.rw"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

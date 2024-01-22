@@ -66,6 +66,7 @@ class MembershipBookings(Base):
     yoga_session_id = Column(Integer, ForeignKey("yoga_sessions.id"))
     billing_names = Column(String(50))
     billing_email = Column(String(50))
+    billing_phone_number = Column(String(50))
     billing_address = Column(String(50))
     billing_city = Column(String(50))
     billing_country_id = Column(Integer, ForeignKey("countries.id"))

@@ -135,7 +135,11 @@ async def get_transaction(user_id: int, db: db_dependency):
 
 @router.post("/create", status_code=status.HTTP_201_CREATED)
 async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, db: db_dependency):
+    receiver_name = yoga_class_booking.billing_names
+    receiver_email = yoga_class_booking.billing_email
     formatted_session_date = formatted_date(yoga_class_booking.booking_date)
+    billing_number = yoga_class_booking.billing_phone_number
+
     more_session_array = yoga_class_booking.booking_more_sessions
     if yoga_class_booking.password == "":
         user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
@@ -145,6 +149,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
             billing_country_id=yoga_class_booking.billing_country_id,
             billing_names=yoga_class_booking.billing_names,
             billing_email=yoga_class_booking.billing_email,
+            billing_phone_number=billing_number,
             billing_address=yoga_class_booking.billing_address,
             billing_city=yoga_class_booking.billing_city,
             payment_status="paid",
@@ -195,6 +200,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         user = User(
             name=yoga_class_booking.billing_names,
             email=yoga_class_booking.billing_email,
+            phone_number=billing_number,
             username=yoga_class_booking.billing_email,
             password=hashed_password,
             role="user",
@@ -203,12 +209,14 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         )
         db.add(user)
         db.commit()
+
         membership_bookings = MembershipBookings(
             user_id=user.id,
             yoga_session_id=yoga_class_booking.yoga_session_id,
             billing_country_id=yoga_class_booking.billing_country_id,
             billing_names=yoga_class_booking.billing_names,
             billing_email=yoga_class_booking.billing_email,
+            billing_phone_number=billing_number,
             billing_address=yoga_class_booking.billing_address,
             billing_city=yoga_class_booking.billing_city,
             payment_status="paid",
@@ -253,6 +261,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 )
                 db.add(yoga_class_booking)
                 db.commit()
+
     subject = f"Thank you for Booking a session at SafeSpace Studio!"
     message = f"Your scheduled yoga session with is confirmed for {formatted_session_date} at {yoga_class_booking.booking_slot_time}. You will receive an email if anything changes."
     smtp_server = os.getenv("MAILGUN_SMTP_SERVER")
@@ -268,12 +277,12 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
     template = env.from_string(email_template_content)
 
     # Render the template with the provided data
-    email_content = template.render(message=message, name=yoga_class_booking.billing_names)
+    email_content = template.render(message=message, name=receiver_name)
 
     # Create the email content
     email = EmailMessage()
     email["From"] = f"SafeSpaceYoga.rw <{smtp_username}>"
-    email["To"] = yoga_class_booking.billing_email
+    email["To"] = receiver_email
     # email["To"] = "ccelyse1@gmail.com"
     email["Subject"] = subject
     email.set_content("This is the plain text content.")

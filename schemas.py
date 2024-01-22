@@ -86,6 +86,7 @@ class MembershipBookingsCreate(BaseModel):
     yoga_session_id: int
     billing_names: str
     billing_email: str
+    billing_phone_number: str
     billing_address: str
     billing_city: str
     billing_country_id: int
@@ -112,6 +113,7 @@ class YogaClassBookingCreate(BaseModel):
     billing_names: str
     billing_email: str
     billing_address: str
+    billing_phone_number: str
     billing_city: str
     billing_country_id: int
     # user_id: int

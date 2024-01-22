@@ -273,8 +273,8 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
     # Create the email content
     email = EmailMessage()
     email["From"] = f"SafeSpaceYoga.rw <{smtp_username}>"
-    # email["To"] = yoga_class_booking.billing_email
-    email["To"] = "ccelyse1@gmail.com"
+    email["To"] = yoga_class_booking.billing_email
+    # email["To"] = "ccelyse1@gmail.com"
     email["Subject"] = subject
     email.set_content("This is the plain text content.")
     email.add_alternative(email_content, subtype="html")

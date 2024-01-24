@@ -128,3 +128,9 @@ class YogaClassBookingCreate(BaseModel):
     # payment_status: str
 
 
+class PaymentDetails(BaseModel):
+    amount: str
+    serviceDescription: str
+    # serviceDate: str
+
+

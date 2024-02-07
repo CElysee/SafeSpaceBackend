@@ -78,6 +78,7 @@ class MembershipBookings(Base):
     currency = Column(String(50))
     CCDapproval = Column(String(50))
     PnrID = Column(String(50))
+    CompanyRef = Column(String(50))
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 

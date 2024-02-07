@@ -51,7 +51,14 @@ def read_email_template_booking():
         return file.read()
 
 
-def DPO_payment_request(dpo_company_token, session_amount, currency, url,  company_ref, redirect_url, back_url, first_name,
+def read_email_custom_template_booking():
+    template_path = os.path.join(os.getcwd(), "templates", "email", "AdvancedEmail.html")
+    with open(template_path, "r") as file:
+        return file.read()
+
+
+def DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url, back_url,
+                        first_name,
                         last_name, receiver_address, receiver_city, receiver_email, billing_number, customerCountry,
                         DefaultPayment, services_code, service_description, service_date, db: Session,
                         membership_bookings: MembershipBookings):
@@ -105,7 +112,8 @@ def DPO_payment_request(dpo_company_token, session_amount, currency, url,  compa
             trans_ref = result_data['TransRef']
             trans_message = result_data['ResultExplanation']
             redirection_url = f"https://secure.3gdirectpay.com/payv2.php?ID={trans_token}"
-            membership_bookings_transaction = db.query(MembershipBookings).filter(MembershipBookings.id == membership_bookings.id).first()
+            membership_bookings_transaction = db.query(MembershipBookings).filter(
+                MembershipBookings.id == membership_bookings.id).first()
             membership_bookings_transaction.transaction_token = trans_token
             membership_bookings_transaction.transaction_ref = trans_ref
             membership_bookings_transaction.CompanyRef = company_ref
@@ -119,6 +127,88 @@ def DPO_payment_request(dpo_company_token, session_amount, currency, url,  compa
         # Handle request exceptions (connection errors, timeouts, etc.)
         return {"error": str(e)}
     # return {"message": "Yoga Class Booking created successfully"}
+
+
+def create_membership_bookings(yoga_class_booking, user, session_amount, billing_number, db: Session):
+    membership_bookings = MembershipBookings(
+        user_id=user.id,
+        yoga_session_id=yoga_class_booking.yoga_session_id,
+        billing_country_id=yoga_class_booking.billing_country_id,
+        billing_names=yoga_class_booking.billing_names,
+        billing_email=yoga_class_booking.billing_email,
+        billing_phone_number=billing_number,
+        billing_address=yoga_class_booking.billing_address,
+        billing_city=yoga_class_booking.billing_city,
+        transaction_amount=session_amount,
+        payment_status="Pending",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    db.add(membership_bookings)
+    db.commit()
+    return membership_bookings
+
+
+def create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_date, membership_bookings_id,
+                                  db: Session):
+    yoga_class_booking = YogaClassBooking(
+        user_id=user.id,
+        yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+        yoga_session_id=yoga_class_booking.yoga_session_id,
+        booking_date=formatted_session_date,
+        booking_slot_time=yoga_class_booking.booking_slot_time,
+        # booking_slot_number=yoga_class_booking.booking_slot_number,
+        transaction_id=membership_bookings_id,
+        booking_status="Pending",
+        payment_status="Pending",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    db.add(yoga_class_booking)
+    db.commit()
+    return yoga_class_booking
+
+
+def send_confirmation_email(booking_session_info, check_transaction, db: Session):
+    subject = f"Booking Confirmation - SafeSpace Yoga Studio!"
+    # message = f"Your scheduled yoga session with is confirmed for {booking_session_info.booking_date} at {booking_session_info.booking_slot_time}. You will receive an email if anything changes."
+    smtp_server = os.getenv("MAILGUN_SMTP_SERVER")
+    smtp_port = int(os.getenv("MAILGUN_SMTP_PORT"))
+    smtp_username = os.getenv("MAILGUN_SMTP_USERNAME")
+    smtp_password = os.getenv("MAILGUN_SMTP_PASSWORD")
+
+    # Read the email template
+    # email_template_content = read_email_template_booking()
+    email_template_content = read_email_custom_template_booking()
+
+    # Create a Jinja2 environment and load the template
+    env = Environment(loader=FileSystemLoader(os.path.join(os.getcwd(), "templates", "email")))
+    template = env.from_string(email_template_content)
+
+    # Render the template with the provided data
+    email_content = template.render(confirmation_code=check_transaction.transaction_id,  name=check_transaction.billing_names, booking_date=booking_session_info.booking_date, booking_slot_time=booking_session_info.booking_slot_time)
+
+    # Create the email content
+    email = EmailMessage()
+    email["From"] = f"SafeSpaceYoga.rw <{smtp_username}>"
+    email["To"] = check_transaction.billing_email
+    # email["To"] = "ccelyse1@gmail.com"
+    email["Subject"] = subject
+    email.set_content("This is the plain text content.")
+    email.add_alternative(email_content, subtype="html")
+    # Attach the image
+    image_path = "templates/email/logo.png"
+    with open(image_path, "rb") as img_file:
+        image = MIMEImage(img_file.read())
+        image.add_header("Content-ID", "logo.png")
+        email.attach(image)
+
+    # Connect to the SMTP server and send the email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(email)
+    return {"message": "Payment status updated"}
 
 
 @router.get("/list")
@@ -222,9 +312,14 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
     billing_number = yoga_class_booking.billing_phone_number
     contry_code = db.query(models.Country).filter(models.Country.id == yoga_class_booking.billing_country_id).first()
     more_session_array = yoga_class_booking.booking_more_sessions
+    length_of_session = len(more_session_array)
     session_package_info = db.query(models.YogaSessions).filter(
         models.YogaSessions.id == yoga_class_booking.yoga_session_id).first()
     session_amount = session_package_info.price
+
+    if session_package_info.name == "DROP IN":
+        new_amount = int(session_amount) * (length_of_session + 1)
+        session_amount = new_amount
 
     currency = "RWF"
     company_ref = "0"
@@ -241,37 +336,16 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
 
     if yoga_class_booking.password == "":
         user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
-        membership_bookings = MembershipBookings(
-            user_id=user.id,
-            yoga_session_id=yoga_class_booking.yoga_session_id,
-            billing_country_id=yoga_class_booking.billing_country_id,
-            billing_names=yoga_class_booking.billing_names,
-            billing_email=yoga_class_booking.billing_email,
-            billing_phone_number=billing_number,
-            billing_address=yoga_class_booking.billing_address,
-            billing_city=yoga_class_booking.billing_city,
-            transaction_amount=session_amount,
-            payment_status="Pending",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        db.add(membership_bookings)
-        db.commit()
-        yoga_class_booking = YogaClassBooking(
-            user_id=user.id,
-            yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-            yoga_session_id=yoga_class_booking.yoga_session_id,
-            booking_date=formatted_session_date,
-            booking_slot_time=yoga_class_booking.booking_slot_time,
-            # booking_slot_number=yoga_class_booking.booking_slot_number,
-            transaction_id=membership_bookings.id,
-            booking_status="Pending",
-            payment_status="Pending",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        db.add(yoga_class_booking)
-        db.commit()
+
+        # Create new membership booking
+        mew_membership_bookings = create_membership_bookings(yoga_class_booking, user, session_amount, billing_number,
+                                                             db)
+        membership_bookings_id = mew_membership_bookings.id
+
+        # Create new yoga booking
+
+        new_yoga_class_booking = create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_date,
+                                                               membership_bookings_id, db)
         if more_session_array:
             for sessions_date in more_session_array:
                 updated_date = formatted_date(sessions_date)
@@ -282,7 +356,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     booking_date=updated_date,
                     booking_slot_time=yoga_class_booking.booking_slot_time,
                     # booking_slot_number=yoga_class_booking.booking_slot_number,
-                    transaction_id=membership_bookings.id,
+                    transaction_id=membership_bookings_id,
                     booking_status="Pending",
                     payment_status="Pending",
                     created_at=datetime.now(),
@@ -290,73 +364,19 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 )
                 db.add(yoga_class_booking)
                 db.commit()
-        xml = f'''<?xml version="1.0" encoding="utf-8"?>
-                       <API3G>
-                         <CompanyToken>{dpo_company_token}</CompanyToken>
-                         <Request>createToken</Request>
-                         <Transaction>
-                           <PaymentAmount>{session_amount}</PaymentAmount>
-                           <PaymentCurrency>{currency}</PaymentCurrency>
-                           <CompanyRef>{company_ref}</CompanyRef>
-                           <RedirectURL>{redirect_url}</RedirectURL>
-                           <BackURL>{back_url}</BackURL>
-                           <CompanyRefUnique>{company_ref}</CompanyRefUnique>
-                           <customerFirstName>{first_name}</customerFirstName>
-                           <customerLastName>{last_name}</customerLastName>
-                           <customerAddress>{receiver_address}</customerAddress>
-                           <customerCity>{receiver_city}</customerCity>
-                           <customerCountry>{customerCountry}</customerCountry>
-                           <customerPhone>{billing_number}</customerPhone>
-                           <customerEmail>{receiver_email}</customerEmail>
-                           <DefaultPayment>{DefaultPayment}</DefaultPayment>
-                           <DefaultPaymentCountry>rwanda</DefaultPaymentCountry>
-                           <PTL>5</PTL>
-                         </Transaction>
-                         <Services>
-                           <Service>
-                             <ServiceType>{services_code}</ServiceType>
-                             <ServiceDescription>{service_description}</ServiceDescription>
-                             <ServiceDate>{service_date}</ServiceDate>
-                           </Service>
-                         </Services>
-                       </API3G>'''
-        headers = {'Content-Type': 'application/xml'}
-        # r = requests.post(url, data=xml, headers=headers)
-        try:
-            response_payment = requests.post(url, data=xml, headers=headers)
-            response_payment.raise_for_status()  # Raise an exception for bad responses (4xx, 5xx)
-            xml_response = response_payment.text
-            print(f"Response Status Code: {response_payment.status_code}")
-            print(f"Response Content: {response_payment.text}")
-            # Parse XML
-            root = ET.fromstring(xml_response)
-            # Convert XML to dictionary
-            result_data = {}
-            for child in root:
-                result_data[child.tag] = child.text
 
-            if result_data['Result'] == "000":
-                trans_token = result_data['TransToken']
-                trans_ref = result_data['TransRef']
-                trans_message = result_data['ResultExplanation']
-                redirection_url = f"https://secure.3gdirectpay.com/payv2.php?ID={trans_token}"
-                membership_bookings_transaction = db.query(MembershipBookings).filter(
-                    MembershipBookings.id == membership_bookings.id).first()
-                membership_bookings_transaction.transaction_token = trans_token
-                membership_bookings_transaction.transaction_ref = trans_ref
-                membership_bookings_transaction.CompanyRef = company_ref
-                membership_bookings_transaction.currency = currency
-                db.commit()
-                return {"message": "Transaction created", "status_code": result_data['Result'],
-                        "redirection_url": redirection_url}
-            else:
-                return {"message": result_data['ResultExplanation'], "status_code": result_data['Result']}
-        except requests.exceptions.RequestException as e:
-            # Handle request exceptions (connection errors, timeouts, etc.)
-            return {"error": str(e)}
-        # return {"message": "Yoga Class Booking created successfully"}
+        # Initialize the payment request to DPO
+        make_payment = DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url,
+                                           back_url, first_name, last_name,
+                                           receiver_address, receiver_city, receiver_email, billing_number,
+                                           customerCountry, DefaultPayment,
+                                           services_code, service_description, service_date, db,
+                                           mew_membership_bookings)
+        return make_payment
 
     else:
+
+        # Create new user account
         hashed_password = get_hashed_password(yoga_class_booking.password)
         user = User(
             name=yoga_class_booking.billing_names,
@@ -371,39 +391,16 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         db.add(user)
         db.commit()
 
-        membership_bookings = MembershipBookings(
-            user_id=user.id,
-            yoga_session_id=yoga_class_booking.yoga_session_id,
-            billing_country_id=yoga_class_booking.billing_country_id,
-            billing_names=yoga_class_booking.billing_names,
-            billing_email=yoga_class_booking.billing_email,
-            billing_phone_number=billing_number,
-            billing_address=yoga_class_booking.billing_address,
-            billing_city=yoga_class_booking.billing_city,
-            transaction_amount=session_amount,
-            payment_status="Pending",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        db.add(membership_bookings)
-        db.commit()
+        # Create new membership booking
+        mew_membership_bookings = create_membership_bookings(yoga_class_booking, user, session_amount, billing_number,
+                                                             db)
+        membership_bookings_id = mew_membership_bookings.id
 
-        yoga_class_booking = YogaClassBooking(
-            user_id=user.id,
-            yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
-            yoga_session_id=yoga_class_booking.yoga_session_id,
-            booking_date=formatted_session_date,
-            booking_slot_time=yoga_class_booking.booking_slot_time,
-            # booking_slot_number=yoga_class_booking.booking_slot_number,
-            transaction_id=membership_bookings.id,
-            booking_status="Pending",
-            payment_status="Pending",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-        db.add(yoga_class_booking)
-        db.commit()
-        db.refresh(membership_bookings)
+        # Create new yoga booking
+
+        new_yoga_class_booking = create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_date,
+                                                               membership_bookings_id, db)
+        # Create new yoga booking if more sessions are added
 
         if more_session_array:
             for sessions_date in yoga_class_booking.booking_more_sessions:
@@ -415,7 +412,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     booking_date=updated_date,
                     booking_slot_time=yoga_class_booking.booking_slot_time,
                     # booking_slot_number=yoga_class_booking.booking_slot_number,
-                    transaction_id=membership_bookings.id,
+                    transaction_id=membership_bookings_id,
                     booking_status="Pending",
                     payment_status="Pending",
                     created_at=datetime.now(),
@@ -423,128 +420,40 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 )
                 db.add(yoga_class_booking)
                 db.commit()
-        xml = f'''<?xml version="1.0" encoding="utf-8"?>
-                       <API3G>
-                         <CompanyToken>{dpo_company_token}</CompanyToken>
-                         <Request>createToken</Request>
-                         <Transaction>
-                           <PaymentAmount>{session_amount}</PaymentAmount>
-                           <PaymentCurrency>{currency}</PaymentCurrency>
-                           <CompanyRef>{company_ref}</CompanyRef>
-                           <RedirectURL>{redirect_url}</RedirectURL>
-                           <BackURL>{back_url}</BackURL>
-                           <CompanyRefUnique>{company_ref}</CompanyRefUnique>
-                           <customerFirstName>{first_name}</customerFirstName>
-                           <customerLastName>{last_name}</customerLastName>
-                           <customerAddress>{receiver_address}</customerAddress>
-                           <customerCity>{receiver_city}</customerCity>
-                           <customerCountry>{customerCountry}</customerCountry>
-                           <customerPhone>{billing_number}</customerPhone>
-                           <customerEmail>{receiver_email}</customerEmail>
-                           <DefaultPayment>{DefaultPayment}</DefaultPayment>
-                           <DefaultPaymentCountry>rwanda</DefaultPaymentCountry>
-                           <PTL>5</PTL>
-                         </Transaction>
-                         <Services>
-                           <Service>
-                             <ServiceType>{services_code}</ServiceType>
-                             <ServiceDescription>{service_description}</ServiceDescription>
-                             <ServiceDate>{service_date}</ServiceDate>
-                           </Service>
-                         </Services>
-                       </API3G>'''
-        headers = {'Content-Type': 'application/xml'}
-        # r = requests.post(url, data=xml, headers=headers)
-        try:
-            response_payment = requests.post(url, data=xml, headers=headers)
-            response_payment.raise_for_status()  # Raise an exception for bad responses (4xx, 5xx)
-            xml_response = response_payment.text
-            print(f"Response Status Code: {response_payment.status_code}")
-            print(f"Response Content: {response_payment.text}")
-            # Parse XML
-            root = ET.fromstring(xml_response)
-            # Convert XML to dictionary
-            result_data = {}
-            for child in root:
-                result_data[child.tag] = child.text
+        # Initialize the payment request to DPO
 
-            if result_data['Result'] == "000":
-                trans_token = result_data['TransToken']
-                trans_ref = result_data['TransRef']
-                trans_message = result_data['ResultExplanation']
-                redirection_url = f"https://secure.3gdirectpay.com/payv2.php?ID={trans_token}"
-                membership_bookings_transaction = db.query(MembershipBookings).filter(
-                    MembershipBookings.id == membership_bookings.id).first()
-                membership_bookings_transaction.transaction_token = trans_token
-                membership_bookings_transaction.transaction_ref = trans_ref
-                membership_bookings_transaction.CompanyRef = company_ref
-                membership_bookings_transaction.currency = currency
-                db.commit()
-                return {"message": "Transaction created", "status_code": result_data['Result'],
-                        "redirection_url": redirection_url}
-            else:
-                return {"message": result_data['ResultExplanation'], "status_code": result_data['Result']}
-        except requests.exceptions.RequestException as e:
-            # Handle request exceptions (connection errors, timeouts, etc.)
-            return {"error": str(e)}
+        make_payment = DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url,
+                                           back_url, first_name, last_name,
+                                           receiver_address, receiver_city, receiver_email, billing_number,
+                                           customerCountry, DefaultPayment,
+                                           services_code, service_description, service_date, db,
+                                           mew_membership_bookings)
+        return make_payment
 
 
 @router.post("/update_payment")
 async def update_payment_status(transId: str, pnrID: str, ccdApproval: str, transactionToken: str, companyRef: str,
                                 db: db_dependency):
+    # Check if transaction exists
     check_transaction = db.query(MembershipBookings).filter(MembershipBookings.transaction_token == transId).first()
-    check_transaction.PnrID = pnrID
-    check_transaction.CCDapproval = ccdApproval
-    check_transaction.transaction_id = transactionToken
-    check_transaction.payment_status = "Paid"
-    db.commit()
-
-    yoga_class_booking = db.query(YogaClassBooking).filter(
-        YogaClassBooking.transaction_id == check_transaction.id).all()
-    for booking in yoga_class_booking:
-        booking.payment_status = "Paid"
-        booking.booking_status = "Approved"
+    if check_transaction.payment_status == "Pending":
+        check_transaction.PnrID = pnrID
+        check_transaction.CCDapproval = ccdApproval
+        check_transaction.transaction_id = transactionToken
+        check_transaction.payment_status = "Paid"
         db.commit()
-    booking_session_info = db.query(YogaClassBooking).filter(
-        YogaClassBooking.transaction_id == check_transaction.id).first()
-    subject = f"Thank you for Booking a session at SafeSpace Studio!"
-    message = f"Your scheduled yoga session with is confirmed for {booking_session_info.booking_date} at {booking_session_info.booking_slot_time}. You will receive an email if anything changes."
-    smtp_server = os.getenv("MAILGUN_SMTP_SERVER")
-    smtp_port = int(os.getenv("MAILGUN_SMTP_PORT"))
-    smtp_username = os.getenv("MAILGUN_SMTP_USERNAME")
-    smtp_password = os.getenv("MAILGUN_SMTP_PASSWORD")
+        yoga_class_booking = db.query(YogaClassBooking).filter(
+            YogaClassBooking.transaction_id == check_transaction.id).all()
+        for booking in yoga_class_booking:
+            booking.payment_status = "Paid"
+            booking.booking_status = "Approved"
+            db.commit()
+        booking_session_info = db.query(YogaClassBooking).filter(
+            YogaClassBooking.transaction_id == check_transaction.id).first()
 
-    # Read the email template
-    email_template_content = read_email_template_booking()
-
-    # Create a Jinja2 environment and load the template
-    env = Environment(loader=FileSystemLoader(os.path.join(os.getcwd(), "templates", "email")))
-    template = env.from_string(email_template_content)
-
-    # Render the template with the provided data
-    email_content = template.render(message=message, name=check_transaction.billing_names)
-
-    # Create the email content
-    email = EmailMessage()
-    email["From"] = f"SafeSpaceYoga.rw <{smtp_username}>"
-    email["To"] = check_transaction.billing_email
-    # email["To"] = "ccelyse1@gmail.com"
-    email["Subject"] = subject
-    email.set_content("This is the plain text content.")
-    email.add_alternative(email_content, subtype="html")
-    # Attach the image
-    image_path = "templates/email/logo.png"
-    with open(image_path, "rb") as img_file:
-        image = MIMEImage(img_file.read())
-        image.add_header("Content-ID", "logo.png")
-        email.attach(image)
-
-    # Connect to the SMTP server and send the email
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        server.send_message(email)
-    return {"message": "Payment status updated"}
+        # Send confirmation email
+        send_email = send_confirmation_email(booking_session_info, check_transaction, db)
+        return send_email
 
 
 @router.get("/spot_available")
@@ -655,3 +564,45 @@ async def makePayment(PaymentDetails: PaymentDetails):
     except requests.exceptions.RequestException as e:
         # Handle request exceptions (connection errors, timeouts, etc.)
         return {"error": str(e)}
+
+
+@router.get('/send_test_mail')
+async def send_test_mail():
+    subject = f"Thank you for Booking a session at SafeSpace Studio!"
+    # message = f"Your scheduled yoga session with is confirmed for {booking_session_info.booking_date} at {booking_session_info.booking_slot_time}. You will receive an email if anything changes."
+    smtp_server = os.getenv("MAILGUN_SMTP_SERVER")
+    smtp_port = int(os.getenv("MAILGUN_SMTP_PORT"))
+    smtp_username = os.getenv("MAILGUN_SMTP_USERNAME")
+    smtp_password = os.getenv("MAILGUN_SMTP_PASSWORD")
+
+    # Read the email template
+    email_template_content = read_email_custom_template_booking()
+
+    # Create a Jinja2 environment and load the template
+    env = Environment(loader=FileSystemLoader(os.path.join(os.getcwd(), "templates", "email")))
+    template = env.from_string(email_template_content)
+
+    # Render the template with the provided data
+    email_content = template.render()
+
+    # Create the email content
+    email = EmailMessage()
+    email["From"] = f"SafeSpaceYoga.rw <{smtp_username}>"
+    email["To"] = "ccelyse1@gmail.com"
+    email["Subject"] = subject
+    email.set_content("This is the plain text content.")
+    email.add_alternative(email_content, subtype="html")
+    # Attach the image
+    image_path = "templates/email/logo.png"
+    with open(image_path, "rb") as img_file:
+        image = MIMEImage(img_file.read())
+        image.add_header("Content-ID", "logo.png")
+        email.attach(image)
+
+    # Connect to the SMTP server and send the email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(email)
+
+    return {"message": "Email sent successfully"}

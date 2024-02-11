@@ -170,6 +170,20 @@ async def delete_membership_bookings(id: int, db: db_dependency):
     return {"message": "Membership Bookings deleted successfully"}
 
 
+@router.get("/admin_count/")
+async def admin_count_membership(db: db_dependency):
+    count_membership_bookings = db.query(MembershipBookings).count()
+    all_users = db.query(models.User).count()
+    all_bookings = db.query(models.YogaClassBooking).count()
+    all_transactions = db.query(models.MembershipBookings).count()
+    sum_membership_bookings = db.query(MembershipBookings).all()
+    sum = 0
+    for i in sum_membership_bookings:
+        price = int(i.yoga_session.price)
+        sum += price
+    return {"all_transactions": all_transactions, "total_amount_transaction": sum, "all_users": all_users, "all_bookings": all_bookings}
+
+
 # count booking by user and sum price
 @router.get("/count/{id}")
 async def count_membership_bookings(id: int, db: db_dependency):

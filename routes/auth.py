@@ -132,6 +132,7 @@ class UserToken(BaseModel):
     token_type: str
     role: str
     userId: int
+    userData: dict
 
 
 UPLOAD_FOLDER = "CarSellImages"
@@ -198,7 +199,8 @@ async def all_users(db: db_dependency):
             "phone_number": user.phone_number,
             "account_status": user.is_active,
             "last_login": last_login,
-            "role": user.role
+            "role": user.role,
+            "created_at": user.created_at,
         }
         users.append(results)
     return users
@@ -306,9 +308,16 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
     token = create_access_token(user.username, user.id, timedelta(minutes=60), user.email, user.role)
+    user_info = {
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "phone_number": user.phone_number,
+        "username": user.username,
+        "role": user.role,
+    }
+    return {'access_token': token, 'token_type': 'bearer', 'role': user.role, 'userId': user.id, 'userData': user_info}
 
-    return {'message': "Successfully Authenticated", 'access_token': token, 'token_type': 'bearer', 'role': user.role,
-            'userId': user.id}
 
 
 # User info by id

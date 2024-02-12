@@ -104,6 +104,7 @@ class YogaClassBooking(Base):
     __tablename__ = "yoga_class_booking"
 
     id = Column(Integer, primary_key=True, index=True)
+    session_ref = Column(String(50))
     user_id = Column(Integer, ForeignKey("users.id"))
     # yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
     yoga_class_location_id = Column(String(50))

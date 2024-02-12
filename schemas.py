@@ -110,6 +110,7 @@ class YogaClassLocationUpdate(BaseModel):
 class YogaClassBookingCreate(BaseModel):
     password: str
     yoga_session_id: int
+    session_ref: str
     billing_names: str
     billing_email: str
     billing_address: str

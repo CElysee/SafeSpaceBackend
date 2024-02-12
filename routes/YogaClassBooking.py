@@ -1,5 +1,7 @@
 import os
+import random
 import smtplib
+import string
 from datetime import datetime
 from email.mime.image import MIMEImage
 
@@ -153,6 +155,7 @@ def create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_da
                                   db: Session):
     yoga_class_booking = YogaClassBooking(
         user_id=user.id,
+        session_ref=yoga_class_booking.session_ref,
         yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
         yoga_session_id=yoga_class_booking.yoga_session_id,
         booking_date=formatted_session_date,
@@ -186,7 +189,12 @@ def send_confirmation_email(booking_session_info, check_transaction, db: Session
     template = env.from_string(email_template_content)
 
     # Render the template with the provided data
-    email_content = template.render(confirmation_code=check_transaction.transaction_id,  name=check_transaction.billing_names, booking_date=booking_session_info.booking_date, booking_slot_time=booking_session_info.booking_slot_time)
+    email_content = template.render(confirmation_code=check_transaction.transaction_ref,
+                                    session_ref=booking_session_info.session_ref,
+                                    session_amount=check_transaction.transaction_amount,
+                                    name=check_transaction.billing_names,
+                                    booking_date=booking_session_info.booking_date,
+                                    booking_slot_time=booking_session_info.booking_slot_time)
 
     # Create the email content
     email = EmailMessage()
@@ -209,6 +217,10 @@ def send_confirmation_email(booking_session_info, check_transaction, db: Session
         server.login(smtp_username, smtp_password)
         server.send_message(email)
     return {"message": "Payment status updated"}
+
+
+def random_string_ref():
+    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=7))
 
 
 @router.get("/list")
@@ -351,6 +363,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 updated_date = formatted_date(sessions_date)
                 yoga_class_booking = YogaClassBooking(
                     user_id=user.id,
+                    session_ref=random_string_ref(),
                     yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
                     yoga_session_id=yoga_class_booking.yoga_session_id,
                     booking_date=updated_date,
@@ -408,6 +421,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 updated_date = formatted_date(sessions_date)
                 yoga_class_booking = YogaClassBooking(
                     user_id=user.id,
+                    session_ref=random_string_ref(),
                     yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
                     yoga_session_id=yoga_class_booking.yoga_session_id,
                     booking_date=updated_date,
@@ -490,6 +504,8 @@ async def get_count(user_id: int, db: db_dependency):
 
 @router.post("/makePayment")
 async def makePayment(PaymentDetails: PaymentDetails):
+    randomStringRef = random_string_ref()
+    return randomStringRef
     amount = PaymentDetails.amount
     currency = "RWF"
     company_ref = "0"
@@ -505,7 +521,7 @@ async def makePayment(PaymentDetails: PaymentDetails):
     customerPhone = "0782384772"
     customerEmail = "ccelyse1@gmail.com"
     DefaultPayment = "MO"
-    CompanyAccRef = "433nmhjk"
+    CompanyAccRef = "gl1qtdego0q"
     url = os.getenv("DPO_ENDPOINT")
     dpo_company_token = os.getenv("DPO_COMPANY_TOKEN")
     services_code = os.getenv("DPO_SERVICE_CODE")

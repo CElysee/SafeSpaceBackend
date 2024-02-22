@@ -3,14 +3,27 @@ import calendar
 from fastapi import APIRouter, Depends, HTTPException, status
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+
+import models
 from database import db_dependency
 from starlette import status
 from typing import List, Optional, Annotated
+from models import YogaClassBooking
 
 router = APIRouter(
     tags=["Planning"],
     prefix='/planning'
 )
+
+
+def formatted_date(date_input):
+    current_year = datetime.now().year
+    input_date = datetime.strptime(date_input + f" {current_year}", "%A %B %d %Y")
+
+    # Format the date in the desired format
+    formatted_date = input_date.strftime("%Y-%m-%d 00:00:00")
+
+    return formatted_date
 
 
 @router.get("/list")
@@ -76,8 +89,8 @@ async def list_planning(db: db_dependency):
     return list_day
 
 
-@router.get("session_weekly_list")
-async def session_weekly_list(db: db_dependency):
+@router.get("/session_weekly_list")
+async def session_weekly_list(yoga_session_name, db: db_dependency):
     # Parse the input date string
     day_date = datetime.now()
     current_month = day_date.month
@@ -91,7 +104,7 @@ async def session_weekly_list(db: db_dependency):
     remaining_mondays_current_month = [first_monday + timedelta(weeks=i) for i in
                                        range((31 - first_monday.day) // 7 + 1) if
                                        (first_monday + timedelta(weeks=i)).month == current_month and (
-                                                   first_monday + timedelta(weeks=i)) > day_date]
+                                               first_monday + timedelta(weeks=i)) > day_date]
 
     # List all Mondays in the next month
     next_month = current_month + 1 if current_month < 12 else 1
@@ -100,7 +113,23 @@ async def session_weekly_list(db: db_dependency):
     first_monday_next_month = first_day_of_next_month + timedelta(
         days=(calendar.MONDAY - first_day_of_next_month.weekday() + 7) % 7)
     all_mondays_next_month = [first_monday_next_month + timedelta(weeks=i) for i in range(4)]
-    days  = remaining_mondays_current_month + all_mondays_next_month
+    days = remaining_mondays_current_month + all_mondays_next_month
     formatted_mondays = [date.strftime('%A %B %d') for date in days]
+    weekly_plan = []
+    for date in formatted_mondays:
+        check_available_spots = db.query(YogaClassBooking).filter(
+            YogaClassBooking.yoga_session_name == yoga_session_name,
+            YogaClassBooking.booking_date == formatted_date(date),
+            YogaClassBooking.payment_status == "paid"
+        ).count()
+        if check_available_spots < 10:
+            available_spots = 10 - check_available_spots
+        else:
+            available_spots = 0
 
-    return formatted_mondays
+        weekly_plan.append({
+            'date': date,
+            'available_spots': available_spots
+        })
+    return weekly_plan
+

@@ -8,12 +8,13 @@ from email.mime.image import MIMEImage
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException, status
 from passlib.context import CryptContext
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 import models
 from database import db_dependency
 from starlette import status
-from models import YogaClassBooking, User, MembershipBookings, YogaSessions, Country
+from models import YogaClassBooking, User, MembershipBookings, YogaSessions, Country, SessionCredits
 from schemas import YogaClassBookingCreate, PaymentDetails
 from typing import List, Optional, Annotated
 from jinja2 import Environment, FileSystemLoader
@@ -59,11 +60,22 @@ def read_email_custom_template_booking():
         return file.read()
 
 
-def DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url, back_url,
-                        first_name,
-                        last_name, receiver_address, receiver_city, receiver_email, billing_number, customerCountry,
-                        DefaultPayment, services_code, service_description, service_date, db: Session,
+def DPO_payment_request(billing_country, session_amount, first_name, last_name, receiver_address, receiver_city,
+                        receiver_email, billing_number, db: Session,
                         membership_bookings: MembershipBookings):
+    contry_code = db.query(models.Country).filter(models.Country.id == billing_country).first()
+    currency = "RWF"
+    company_ref = "0"
+    redirect_url = os.getenv("DPO_REDIRECT_URL")
+    back_url = ""
+    service_description = "Yoga class session booking"
+    service_date = datetime.now().strftime('%Y/%m/%d %H:%M')
+    customerCountry = contry_code.code
+    DefaultPayment = "MO"
+
+    url = os.getenv("DPO_ENDPOINT")
+    dpo_company_token = os.getenv("DPO_COMPANY_TOKEN")
+    services_code = os.getenv("DPO_SERVICE_CODE")
     xml = f'''<?xml version="1.0" encoding="utf-8"?>
                           <API3G>
                             <CompanyToken>{dpo_company_token}</CompanyToken>
@@ -157,6 +169,7 @@ def create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_da
         user_id=user.id,
         session_ref=yoga_class_booking.session_ref,
         yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+        yoga_session_name=yoga_class_booking.yoga_session_name,
         yoga_session_id=yoga_class_booking.yoga_session_id,
         booking_date=formatted_session_date,
         booking_slot_time=yoga_class_booking.booking_slot_time,
@@ -164,12 +177,62 @@ def create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_da
         transaction_id=membership_bookings_id,
         booking_status="Pending",
         payment_status="Pending",
+        mode_of_payment="Momo/Card",
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
     db.add(yoga_class_booking)
     db.commit()
     return yoga_class_booking
+
+
+
+def create_session_credits(user, session_class_name, session_package_info, more_session_array, db):
+    if session_package_info.name in ["5 CLASSES PASS", "10 CLASSES PASS"]:
+        number_of_classes = session_package_info.number_of_classes
+        booked_classes = len(more_session_array)
+        remaining_classes = number_of_classes - (booked_classes + 1)
+
+        if remaining_classes > 0:
+            current_credits = db.query(SessionCredits).filter(SessionCredits.user_id == user.id).first()
+            if current_credits and session_class_name == current_credits.session_class_name:
+                session_current_credits = int(current_credits.remaining_credits)
+                current_credits.remaining_credits = str(int(remaining_classes) + session_current_credits)
+                db.commit()
+                return current_credits
+            else:
+                # Create new session credits if not found or if session_class_name does not match
+                new_session_credits = SessionCredits(
+                    user_id=user.id,
+                    remaining_credits=remaining_classes,
+                    session_class_name=session_class_name,
+                    created_at=datetime.now()
+                )
+                db.add(new_session_credits)
+                db.commit()
+                return new_session_credits
+
+
+def deduct_session_credits(user, session_class_name, session_package_info, more_session_array, db: Session):
+    # Check if the session package is eligible for deduction
+    booked_classes = len(more_session_array)
+    remaining_classes = booked_classes + 1
+    # Ensure there are remaining classes to deduct credits
+    if remaining_classes > 0:
+        # Query current session credits for the user and class
+        check_current_credits = (
+            db.query(SessionCredits)
+            .filter(SessionCredits.user_id == user.id, SessionCredits.session_class_name == session_class_name)
+            .first()
+        )
+        # If there are existing credits, deduct and update the database
+        if check_current_credits:
+            current_credits = int(check_current_credits.remaining_credits)
+            updated_credits = max(0, current_credits - remaining_classes)
+            check_current_credits.remaining_credits = str(updated_credits)
+            db.commit()
+
+            return updated_credits
 
 
 def send_confirmation_email(booking_session_info, check_transaction, db: Session):
@@ -187,6 +250,8 @@ def send_confirmation_email(booking_session_info, check_transaction, db: Session
     # Create a Jinja2 environment and load the template
     env = Environment(loader=FileSystemLoader(os.path.join(os.getcwd(), "templates", "email")))
     template = env.from_string(email_template_content)
+    all_booking_sessions = db.query(models.YogaClassBooking).filter(
+        models.YogaClassBooking.transaction_id == check_transaction.id).all()
 
     # Render the template with the provided data
     email_content = template.render(confirmation_code=check_transaction.transaction_ref,
@@ -194,7 +259,9 @@ def send_confirmation_email(booking_session_info, check_transaction, db: Session
                                     session_amount=check_transaction.transaction_amount,
                                     name=check_transaction.billing_names,
                                     booking_date=booking_session_info.booking_date,
-                                    booking_slot_time=booking_session_info.booking_slot_time)
+                                    booking_slot_time=booking_session_info.booking_slot_time,
+                                    all_booking_sessions=all_booking_sessions,
+                                    )
 
     # Create the email content
     email = EmailMessage()
@@ -322,7 +389,9 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
     receiver_address = yoga_class_booking.billing_address
     formatted_session_date = formatted_date(yoga_class_booking.booking_date)
     billing_number = yoga_class_booking.billing_phone_number
-    contry_code = db.query(models.Country).filter(models.Country.id == yoga_class_booking.billing_country_id).first()
+    billing_country = yoga_class_booking.billing_country_id
+    session_class_name = yoga_class_booking.yoga_session_name
+
     more_session_array = yoga_class_booking.booking_more_sessions
     length_of_session = len(more_session_array)
     session_package_info = db.query(models.YogaSessions).filter(
@@ -333,22 +402,10 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         new_amount = int(session_amount) * (length_of_session + 1)
         session_amount = new_amount
 
-    currency = "RWF"
-    company_ref = "0"
-    redirect_url = os.getenv("DPO_REDIRECT_URL")
-    back_url = ""
-    service_description = "Yoga class session booking"
-    service_date = datetime.now().strftime('%Y/%m/%d %H:%M')
-    customerCountry = contry_code.code
-    DefaultPayment = "MO"
-
-    url = os.getenv("DPO_ENDPOINT")
-    dpo_company_token = os.getenv("DPO_COMPANY_TOKEN")
-    services_code = os.getenv("DPO_SERVICE_CODE")
-
     if yoga_class_booking.password == "":
         user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
-
+        # Create user credits
+        create_session_credits(user, session_class_name, session_package_info, more_session_array, db)
         # Create new membership booking
         mew_membership_bookings = create_membership_bookings(yoga_class_booking, user, session_amount, billing_number,
                                                              db)
@@ -365,6 +422,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     user_id=user.id,
                     session_ref=random_string_ref(),
                     yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+                    yoga_session_name=yoga_class_booking.yoga_session_name,
                     yoga_session_id=yoga_class_booking.yoga_session_id,
                     booking_date=updated_date,
                     booking_slot_time=yoga_class_booking.booking_slot_time,
@@ -372,6 +430,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     transaction_id=membership_bookings_id,
                     booking_status="Pending",
                     payment_status="Pending",
+                    mode_of_payment="Momo/Card",
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
                 )
@@ -379,12 +438,8 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                 db.commit()
 
         # Initialize the payment request to DPO
-        make_payment = DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url,
-                                           back_url, first_name, last_name,
-                                           receiver_address, receiver_city, receiver_email, billing_number,
-                                           customerCountry, DefaultPayment,
-                                           services_code, service_description, service_date, db,
-                                           mew_membership_bookings)
+        make_payment = DPO_payment_request(billing_country, session_amount, first_name, last_name, receiver_address,
+                                           receiver_city, receiver_email, billing_number, db, mew_membership_bookings)
         return make_payment
 
     else:
@@ -405,6 +460,8 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
         db.add(user)
         db.commit()
 
+        # Create user credits
+        create_session_credits(user, session_class_name, session_package_info, more_session_array, db)
         # Create new membership booking
         mew_membership_bookings = create_membership_bookings(yoga_class_booking, user, session_amount, billing_number,
                                                              db)
@@ -423,6 +480,7 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     user_id=user.id,
                     session_ref=random_string_ref(),
                     yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+                    yoga_session_name=yoga_class_booking.yoga_session_name,
                     yoga_session_id=yoga_class_booking.yoga_session_id,
                     booking_date=updated_date,
                     booking_slot_time=yoga_class_booking.booking_slot_time,
@@ -430,20 +488,112 @@ async def create_yoga_class_booking(yoga_class_booking: YogaClassBookingCreate, 
                     transaction_id=membership_bookings_id,
                     booking_status="Pending",
                     payment_status="Pending",
+                    mode_of_payment="Momo/Card",
                     created_at=datetime.now(),
                     updated_at=datetime.now(),
                 )
                 db.add(yoga_class_booking)
                 db.commit()
         # Initialize the payment request to DPO
-
-        make_payment = DPO_payment_request(dpo_company_token, session_amount, currency, url, company_ref, redirect_url,
-                                           back_url, first_name, last_name,
-                                           receiver_address, receiver_city, receiver_email, billing_number,
-                                           customerCountry, DefaultPayment,
-                                           services_code, service_description, service_date, db,
-                                           mew_membership_bookings)
+        make_payment = DPO_payment_request(billing_country, session_amount, first_name, last_name, receiver_address,
+                                           receiver_city, receiver_email, billing_number, db, mew_membership_bookings)
         return make_payment
+
+
+@router.post("/createUsingCredits")
+async def create_yoga_class_booking_using_credits(yoga_class_booking: YogaClassBookingCreate, db: db_dependency):
+    receiver_name = yoga_class_booking.billing_names
+    name_parts = receiver_name.split()
+    # Extract the first and last names
+    first_name = name_parts[0]
+    last_name = " ".join(name_parts[1:])
+    receiver_email = yoga_class_booking.billing_email
+    receiver_address = yoga_class_booking.billing_address
+    receiver_city = yoga_class_booking.billing_city
+    receiver_address = yoga_class_booking.billing_address
+    formatted_session_date = formatted_date(yoga_class_booking.booking_date)
+    billing_number = yoga_class_booking.billing_phone_number
+    billing_country = yoga_class_booking.billing_country_id
+    session_class_name = yoga_class_booking.yoga_session_name
+
+    more_session_array = yoga_class_booking.booking_more_sessions
+    length_of_session = len(more_session_array)
+    session_package_info = db.query(models.YogaSessions).filter(
+        models.YogaSessions.id == yoga_class_booking.yoga_session_id).first()
+    session_amount = session_package_info.price
+
+    if session_package_info.name == "DROP IN":
+        new_amount = int(session_amount) * (length_of_session + 1)
+        session_amount = new_amount
+
+    user = db.query(User).filter(User.email == yoga_class_booking.billing_email).first()
+    # Deduct credits
+    deduct_session_credits(user, session_class_name, session_package_info, more_session_array, db)
+    # Create new membership booking
+    membership_bookings = MembershipBookings(
+        user_id=user.id,
+        yoga_session_id=yoga_class_booking.yoga_session_id,
+        billing_country_id=yoga_class_booking.billing_country_id,
+        billing_names=yoga_class_booking.billing_names,
+        billing_email=yoga_class_booking.billing_email,
+        billing_phone_number=billing_number,
+        billing_address=yoga_class_booking.billing_address,
+        billing_city=yoga_class_booking.billing_city,
+        transaction_amount="0",
+        payment_status="Paid",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    db.add(membership_bookings)
+    db.commit()
+    membership_bookings_id = membership_bookings.id
+    # Create new yoga booking
+
+    yoga_class_booking = YogaClassBooking(
+        user_id=user.id,
+        session_ref=yoga_class_booking.session_ref,
+        yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+        yoga_session_name=yoga_class_booking.yoga_session_name,
+        yoga_session_id=yoga_class_booking.yoga_session_id,
+        booking_date=formatted_session_date,
+        booking_slot_time=yoga_class_booking.booking_slot_time,
+        # booking_slot_number=yoga_class_booking.booking_slot_number,
+        transaction_id=membership_bookings_id,
+        booking_status="Approved",
+        payment_status="Paid",
+        mode_of_payment="Credits",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    db.add(yoga_class_booking)
+    db.commit()
+
+    if more_session_array:
+        for sessions_date in more_session_array:
+            updated_date = formatted_date(sessions_date)
+            yoga_class_booking = YogaClassBooking(
+                user_id=user.id,
+                session_ref=random_string_ref(),
+                yoga_class_location_id=yoga_class_booking.yoga_class_location_id,
+                yoga_session_name=yoga_class_booking.yoga_session_name,
+                yoga_session_id=yoga_class_booking.yoga_session_id,
+                booking_date=updated_date,
+                booking_slot_time=yoga_class_booking.booking_slot_time,
+                # booking_slot_number=yoga_class_booking.booking_slot_number,
+                transaction_id=membership_bookings_id,
+                booking_status="Approved",
+                payment_status="Paid",
+                mode_of_payment="Credits",
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            db.add(yoga_class_booking)
+            db.commit()
+
+    # Initialize confirmation email
+    booking_session_info = yoga_class_booking
+    send_email = send_confirmation_email(booking_session_info, membership_bookings, db)
+    return send_email
 
 
 @router.post("/update_payment")
@@ -451,11 +601,16 @@ async def update_payment_status(transId: str, pnrID: str, ccdApproval: str, tran
                                 db: db_dependency):
     # Check if transaction exists
     check_transaction = db.query(MembershipBookings).filter(MembershipBookings.transaction_token == transId).first()
+    # Check Yoga Class Booking
+    session_yoga_info = db.query(YogaClassBooking).filter(
+        YogaClassBooking.transaction_id == check_transaction.id).count()
+    # remaining_balance = check_transaction.transaction_amount - (15000 * session_yoga_info)
     if check_transaction.payment_status == "Pending":
         check_transaction.PnrID = pnrID
         check_transaction.CCDapproval = ccdApproval
         check_transaction.transaction_id = transactionToken
         check_transaction.payment_status = "Paid"
+        # check_transaction.remaing_balance = remaining_balance
         db.commit()
         yoga_class_booking = db.query(YogaClassBooking).filter(
             YogaClassBooking.transaction_id == check_transaction.id).all()
@@ -472,22 +627,17 @@ async def update_payment_status(transId: str, pnrID: str, ccdApproval: str, tran
 
 
 @router.get("/spot_available")
-async def get_spot_available(yoga_session_id: int, booking_date: str, booking_slot_time: str,
-                             yoga_class_location_id: int, db: db_dependency):
+async def get_spot_available(yoga_session_name: str, booking_date: str, db: db_dependency):
+    formatted_session_date = formatted_date(booking_date)
     yoga_class_booking = db.query(YogaClassBooking).filter(
-        YogaClassBooking.yoga_class_location_id == yoga_class_location_id).filter(
-        YogaClassBooking.yoga_session_id == yoga_session_id).filter(
-        YogaClassBooking.booking_date == booking_date).filter(
-        YogaClassBooking.booking_slot_time == booking_slot_time).all()
-
-    sum_slots = 0
-    for booking in yoga_class_booking:
-        sum_slots += booking.booking_slot_number  # Add each booking_slot_number to the sum_slots
-
-    if sum_slots < 10:
-        return {"message": {10 - sum_slots}}
+        YogaClassBooking.yoga_session_name == yoga_session_name,
+        YogaClassBooking.booking_date == formatted_session_date,
+        YogaClassBooking.payment_status == "paid"
+    ).count()
+    if yoga_class_booking < 10:
+        return {10 - yoga_class_booking}
     else:
-        return {"message": "Spot not available"}
+        return {0}
 
 
 @router.get("/count")

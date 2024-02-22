@@ -319,7 +319,6 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     return {'access_token': token, 'token_type': 'bearer', 'role': user.role, 'userId': user.id, 'userData': user_info}
 
 
-
 # User info by id
 @router.get("/users/{user_id}")
 async def get_user(user_id: int, db: db_dependency):
@@ -339,9 +338,18 @@ async def get_user(user_id: int, db: db_dependency):
     }
     return data
 
+
 @router.post("/check_username", status_code=status.HTTP_200_OK)
 async def check_username(user_request: schemas.UserCheck, db: db_dependency):
     user = db.query(models.User).filter(models.User.email == user_request.email).first()
+    check_credits = db.query(models.SessionCredits).filter(
+        models.SessionCredits.user_id == user.id,
+                 models.SessionCredits.session_class_name == user_request.session_name
+    ).first()
+    remaining_credits = 0
+    if check_credits:
+        remaining_credits = check_credits.remaining_credits
+
     if user is None:
         return {'message': "Email not registered"}
     if not user.is_active:
@@ -350,7 +358,9 @@ async def check_username(user_request: schemas.UserCheck, db: db_dependency):
         country_details = user.country
         details = {
             "name": user.name,
-            "country": country_details
+            "phone_number": user.phone_number,
+            "country": country_details,
+            "credits": remaining_credits
         }
         return {"message": "Account is registered", "data": details}
 

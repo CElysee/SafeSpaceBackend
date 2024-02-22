@@ -30,6 +30,7 @@ async def create_yoga_sessions(yoga_sessions: YogaSessionsCreate, db: db_depende
     yoga_sessions = YogaSessions(
         name=yoga_sessions.name,
         price=yoga_sessions.price,
+        number_of_classes=yoga_sessions.number_of_classes,
         description=yoga_sessions.description,
         session_time=yoga_sessions.session_time,
         created_at=datetime.now(),
@@ -55,14 +56,26 @@ async def update_yoga_sessions(id: int, yoga_sessions: YogaSessionsUpdate, db: d
     if check_yoga_sessions is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="YogaSessions does not exist")
     # Define the update values in a dictionary
-    update_values = {
-        "name": yoga_sessions.name,
-        "price": yoga_sessions.price,
-        "description": yoga_sessions.description,
-        "session_time": yoga_sessions.session_time,
-        "updated_at": datetime.now(),
-    }
-    yoga_sessions = db.query(YogaSessions).filter(YogaSessions.id == id).update(update_values)
+    # update_values = {
+    #     "name": yoga_sessions.name,
+    #     "price": yoga_sessions.price,
+    #     "number_of_classes": yoga_sessions.number_of_classes,
+    #     "description": yoga_sessions.description,
+    #     "session_time": yoga_sessions.session_time,
+    #     "updated_at": datetime.now(),
+    # }
+    # yoga_sessions = db.query(YogaSessions).filter(YogaSessions.id == id).update(update_values)
+    if yoga_sessions.name:
+        check_yoga_sessions.name = yoga_sessions.name
+    if yoga_sessions.price:
+        check_yoga_sessions.price = yoga_sessions.price
+    if yoga_sessions.description:
+        check_yoga_sessions.description = yoga_sessions.description
+    if yoga_sessions.session_time:
+        check_yoga_sessions.session_time = yoga_sessions.session_time
+    if yoga_sessions.number_of_classes:
+        check_yoga_sessions.number_of_classes = yoga_sessions.number_of_classes
+    check_yoga_sessions.updated_at = datetime.now()
     db.commit()
     return {"message": "YogaSessions updated successfully"}
 

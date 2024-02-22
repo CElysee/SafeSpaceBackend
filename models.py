@@ -28,6 +28,7 @@ class User(Base):
     country = relationship("Country", back_populates="user")
     membership_bookings = relationship("MembershipBookings", back_populates="user")
     yoga_class_booking = relationship("YogaClassBooking", back_populates="user")
+    session_credits = relationship("SessionCredits", back_populates="user")
 
 
 class Country(Base):
@@ -49,6 +50,7 @@ class YogaSessions(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50))
     price = Column(String(50))
+    number_of_classes = Column(Integer)
     description = Column(Text)
     session_time = Column(String(50))
     created_at = Column(DateTime)
@@ -106,7 +108,7 @@ class YogaClassBooking(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_ref = Column(String(50))
     user_id = Column(Integer, ForeignKey("users.id"))
-    # yoga_class_location_id = Column(Integer, ForeignKey("yoga_class_location.id"))
+    yoga_session_name = Column(String(50))
     yoga_class_location_id = Column(String(50))
     yoga_session_id = Column(Integer, ForeignKey("yoga_sessions.id"))
     transaction_id = Column(Integer, ForeignKey("membership_bookings.id"))
@@ -115,6 +117,7 @@ class YogaClassBooking(Base):
     booking_slot_number = Column(Integer)
     booking_status = Column(String(50))
     payment_status = Column(String(50))
+    mode_of_payment = Column(String(50))
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
 
@@ -122,3 +125,18 @@ class YogaClassBooking(Base):
     # yoga_class_location = relationship("YogaClassLocation", back_populates="yoga_class_booking")
     yoga_session = relationship("YogaSessions", back_populates="yoga_class_booking")
     membership_bookings = relationship("MembershipBookings", back_populates="yoga_class_booking")
+
+
+class SessionCredits(Base):
+    __tablename__ = "session_credits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    remaining_credits = Column(String(50))
+    session_class_name = Column(String(50))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+    user = relationship("User", back_populates="session_credits")
+
+

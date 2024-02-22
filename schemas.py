@@ -41,6 +41,7 @@ class UserOut(BaseModel):
 
 class UserCheck(BaseModel):
     email: EmailStr
+    session_name: str
 
 
 class UserId(BaseModel):
@@ -68,6 +69,7 @@ class CountryOut(CountryBase):
 class YogaSessionsCreate(BaseModel):
     name: str
     price: int
+    number_of_classes: int
     description: str
     session_time: str
     created_at: datetime
@@ -75,10 +77,11 @@ class YogaSessionsCreate(BaseModel):
 
 
 class YogaSessionsUpdate(BaseModel):
-    name: Optional[str]
-    price: Optional[int]
-    description: Optional[str]
-    session_time: Optional[str]
+    name: Optional[str] = None
+    price: Optional[str] = None
+    number_of_classes: Optional[int] = None
+    description: Optional[str] = None
+    session_time: Optional[str] = None
 
 
 class MembershipBookingsCreate(BaseModel):
@@ -110,6 +113,7 @@ class YogaClassLocationUpdate(BaseModel):
 class YogaClassBookingCreate(BaseModel):
     password: str
     yoga_session_id: int
+    yoga_session_name: str
     session_ref: str
     billing_names: str
     billing_email: str
@@ -135,3 +139,7 @@ class PaymentDetails(BaseModel):
     # serviceDate: str
 
 
+class SessionCreditsCreate(BaseModel):
+    user_id: int
+    remaining_credits: str
+    session_class_name: str

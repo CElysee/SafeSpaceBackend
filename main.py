@@ -31,7 +31,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     # allow_origins=origins,
-    allow_origins=["http://localhost:5173", "https://app.safespaceyoga.rw", "https://app.safespaceyoga.rw:8000"],
+    allow_origins=["http://localhost:5173", "http://app.safespaceyoga.rw" "https://app.safespaceyoga.rw", "https://app.safespaceyoga.rw:8000", "http://app.safespaceyoga.rw:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,9 +1,14 @@
+import secrets
+from importlib import metadata
+
 from fastapi import FastAPI, HTTPException, Depends
 # from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html, get_redoc_html
+from fastapi.responses import UJSONResponse
 from starlette import status
 from fastapi.staticfiles import StaticFiles
-
+from starlette.responses import HTMLResponse
 from routes import (auth, country, YogaSessions, MembershipBookings, YogaClassLocation, YogaClassBooking, Planning)
 from routes.auth import get_current_user, user_dependency
 
@@ -13,7 +18,14 @@ import os
 from cachetools import TTLCache
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
-app = FastAPI()
+app = FastAPI(
+    title="FastAPI",
+    version=metadata.version("FastAPI"),
+    docs_url=None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+    default_response_class=UJSONResponse,
+)
 # Configure CORS middleware
 # origins = ["*"]  # Replace "*" with your frontend's domain(s) for production
 app.add_middleware(
@@ -41,36 +53,26 @@ app.mount("/CarSellImages", StaticFiles(directory="CarSellImages"), name="images
 cache = TTLCache(maxsize=100, ttl=600)  # TTLCache as an example, use your actual cache implementation
 
 
-def get_current_user(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = "admin"
-    correct_password = "Attack@2017_!"
-    if credentials.username != correct_username or credentials.password != correct_password:
+def get_current_username(credentials: HTTPBasicCredentials = Depends(security)) -> str:
+    correct_username = secrets.compare_digest(credentials.username, "admin")
+    correct_password = secrets.compare_digest(credentials.password, "Attack@2017_!")
+    if not (correct_username and correct_password):
         raise HTTPException(
-            status_code=401,
-            detail="Unauthorized",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Basic"},
         )
     return credentials.username
 
 
-@app.get('/', status_code=status.HTTP_200_OK)
-async def user(user: user_dependency, db: db_dependency):
-    user = db.query(models.User).all()
-    return user
+@app.get("/docs", response_class=HTMLResponse)
+async def get_docs(username: str = Depends(get_current_username)) -> HTMLResponse:
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title="docs")
 
 
-@app.get("/docs/", tags=["docs"], dependencies=[Depends(get_current_user)])
-async def docs_home():
-    return {"message": "Swagger UI Home"}
-
-@app.get("/docs", tags=["docs"], dependencies=[Depends(get_current_user)])
-async def docs_home():
-    return {"message": "Swagger UI Home"}
-
-
-@app.get("/docs/secure", tags=["docs"], dependencies=[Depends(get_current_user)])
-async def secure_endpoint():
-    return {"message": "This is a secure endpoint"}
+@app.get("/redoc", response_class=HTMLResponse)
+async def get_redoc(username: str = Depends(get_current_username)) -> HTMLResponse:
+    return get_redoc_html(openapi_url="/api/openapi.json", title="redoc")
 
 
 @app.get("/UserProfiles/{filename}")

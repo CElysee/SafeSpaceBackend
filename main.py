@@ -63,6 +63,10 @@ async def user(user: user_dependency, db: db_dependency):
 async def docs_home():
     return {"message": "Swagger UI Home"}
 
+@app.get("/docs", tags=["docs"], dependencies=[Depends(get_current_user)])
+async def docs_home():
+    return {"message": "Swagger UI Home"}
+
 
 @app.get("/docs/secure", tags=["docs"], dependencies=[Depends(get_current_user)])
 async def secure_endpoint():

@@ -241,8 +241,6 @@
                                                                                                     This is&nbsp;a confirmation email&nbsp;to let you know that your booking was&nbsp;successful.&nbsp;Your session details:<br />
                                                                                                     <br />
                                                                                                     <strong>
-                                                                                                        <b>Booking Date</b>: <b></b><br />
-                                                                                                        <b>Booking Slot time</b>: <b></b><br />
                                                                                                         <b>Session ref code</b>: <b>{{ session_ref }}</b><br />
                                                                                                         <b>Session cost</b>: <b>{{ session_amount }} RWF</b><br />
                                                                                                         <b>Payment ref code</b>: <b>{{ confirmation_code }}</b><br />
@@ -252,6 +250,7 @@
                                                                                                     <table border="1" cellspacing="0" cellpadding="10" style="border-collapse: collapse; width: 100%;">
                                                                                                         <thead>
                                                                                                             <tr>
+                                                                                                                <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Yoga Class</th>
                                                                                                                 <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Booking Date</th>
                                                                                                                 <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Booking Slot Time</th>
                                                                                                                 <th style="border: 1px solid #dddddd; text-align: left; padding: 8px;">Location</th>
@@ -260,6 +259,7 @@
                                                                                                         <tbody>
                                                                                                         {% for session in all_booking_sessions %}
                                                                                                             <tr>
+                                                                                                                <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{{ session.yoga_session_name }}</td>
                                                                                                                 <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{{ session.booking_date }}</td>
                                                                                                                 <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{{ session.booking_slot_time }}</td>
                                                                                                                 <td style="border: 1px solid #dddddd; text-align: left; padding: 8px;">{{ session.yoga_class_location_id }}</td>

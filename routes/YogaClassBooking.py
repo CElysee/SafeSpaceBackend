@@ -186,9 +186,8 @@ def create_new_yoga_class_booking(yoga_class_booking, user, formatted_session_da
     return yoga_class_booking
 
 
-
 def create_session_credits(user, session_class_name, session_package_info, more_session_array, db):
-    if session_package_info.name in ["5 CLASSES PASS", "10 CLASSES PASS"]:
+    if session_package_info.name in ["5 CLASSES PASS", "10 CLASSES PASS", "SADHANA 4 CLASSES PASS"]:
         number_of_classes = session_package_info.number_of_classes
         booked_classes = len(more_session_array)
         remaining_classes = number_of_classes - (booked_classes + 1)
@@ -596,6 +595,14 @@ async def create_yoga_class_booking_using_credits(yoga_class_booking: YogaClassB
     return send_email
 
 
+@router.get("/check_user_credits")
+async def check_user_credits(user_id: int, session_class_name: str, db: db_dependency):
+    check_user_credits = db.query(SessionCredits).filter(SessionCredits.user_id == user_id).filter(
+        SessionCredits.session_class_name == session_class_name).first()
+    if check_user_credits:
+        return {"remaining_credits": check_user_credits.remaining_credits}
+    else:
+        return {"remaining_credits": 0}
 @router.post("/update_payment")
 async def update_payment_status(transId: str, pnrID: str, ccdApproval: str, transactionToken: str, companyRef: str,
                                 db: db_dependency):

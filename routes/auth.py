@@ -391,6 +391,28 @@ async def get_billing_info(user_id: int, db: db_dependency):
     return user_membership
 
 
+@router.get("/billing_info_by_email")
+async def get_billing_info_by_email(email: str, db: db_dependency):
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user_country = user.country
+    user_membership = db.query(models.MembershipBookings).filter(models.MembershipBookings.user_id == user.id).first()
+    if not user_membership:
+        raise HTTPException(status_code=404, detail="User membership not found")
+    user_membership = {
+        "billing_names": user_membership.billing_names,
+        "billing_email": user_membership.billing_email,
+        "billing_phone_number": user_membership.billing_phone_number,
+        "billing_address": user_membership.billing_address,
+        "billing_city": user_membership.billing_city,
+        "billing_country": user_country,
+        "billing_country_id": user_membership.billing_country_id,
+    }
+    return user_membership
+
+
+
 @router.post("/users/profile/update", status_code=status.HTTP_200_OK)
 async def update_profile(
         name: str = Form(None),

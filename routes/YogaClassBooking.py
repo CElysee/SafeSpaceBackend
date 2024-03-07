@@ -41,7 +41,6 @@ def get_hashed_password(password: str):
 def formatted_date(date_input):
     current_year = datetime.now().year
     input_date = datetime.strptime(date_input + f" {current_year}", "%A %B %d %Y")
-
     # Format the date in the desired format
     formatted_date = input_date.strftime("%Y-%m-%d 00:00:00")
 
@@ -636,6 +635,7 @@ async def update_payment_status(transId: str, pnrID: str, ccdApproval: str, tran
 @router.get("/spot_available")
 async def get_spot_available(yoga_session_name: str, booking_date: str, db: db_dependency):
     formatted_session_date = formatted_date(booking_date)
+
     yoga_class_booking = db.query(YogaClassBooking).filter(
         YogaClassBooking.yoga_session_name == yoga_session_name,
         YogaClassBooking.booking_date == formatted_session_date,
